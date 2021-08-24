@@ -1,6 +1,31 @@
 use bevy::prelude::*;
 use bevy_egui::*;
 
+pub struct FlashMessage {
+    pub message: String,
+    pub color: egui::Color32,
+    pub time_expire: f32,
+}
+
+fn flash_message(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut general_input: ResMut<GeneralInput>,
+    egui_context: ResMut<EguiContext>,
+    mut q_messages: Query<(Entity, &mut FlashMessage)>,
+) {
+    egui::Area::new("flash")
+        .fixed_pos(egui::Pos2::new(10f32, 10f32))
+        .show(egui_context.ctx(), |ui| {
+            for (e, mut f) in q_messages.iter_mut() {
+                ui.colored_label(f.color, f.message.clone());
+                if f.time_expire <= time.time_since_startup().as_secs_f32() {
+                    commands.entity(e).despawn();
+                }
+            }
+        });
+}
+
 mod GameButton {
     use super::*;
 
@@ -86,6 +111,8 @@ mod GameButton {
         }
     }
     pub fn button_letters(
+        mut commands: Commands,
+        mut time: Res<Time>,
         general_input: Res<GeneralInput>,
         mut q_buttons: Query<(&mut LetterByLetter, &UserInput, &mut ButtonInfo)>,
     ) {
@@ -94,6 +121,11 @@ mod GameButton {
                 letters.current_index = 0;
                 info.text = letters.full_string.chars().take(1).collect::<String>();
                 // TODO: spawn entity to show "ILLUSION" as label for a short time
+                commands.spawn().insert(FlashMessage {
+                    message: "ILLUSION".into(),
+                    color: egui::Color32::YELLOW,
+                    time_expire: time.time_since_startup().as_secs_f32() + 0.5f32,
+                });
             }
             if input.clicked_on_frame {
                 letters.current_index += 1;
@@ -158,6 +190,7 @@ fn main() {
         //.add_system(ui_example.system())
         .add_system_to_stage(CoreStage::PreUpdate, reset_input.system())
         .add_system_to_stage(CoreStage::Update, display_buttons.system())
+        .add_system_to_stage(CoreStage::Update, flash_message.system())
         .add_system_to_stage(CoreStage::PostUpdate, button_letters.system())
         .add_system_to_stage(CoreStage::PostUpdate, button_blink.system())
         .add_system_to_stage(CoreStage::PostUpdate, button_move.system())
@@ -169,7 +202,7 @@ fn setup_level(time: Res<Time>, mut commands: Commands) {
         .spawn()
         .insert(ButtonInfo {
             text: "S".into(),
-            position: egui::Rect::from_min_size([200f32, 10f32].into(), [200f32, 50f32].into()),
+            position: egui::Rect::from_min_size([10f32, 20f32].into(), [10f32, 50f32].into()),
             visible: true,
         })
         .insert(LetterByLetter {
@@ -185,7 +218,7 @@ fn setup_level(time: Res<Time>, mut commands: Commands) {
             time.time_since_startup().as_secs_f32() + 2f32,
         ))
         .insert(MovingDef {
-            path: vec![[200f32, 10f32].into(), [200f32, 100f32].into()],
+            path: vec![[10f32, 20f32].into(), [10f32, 100f32].into()],
             speed: 25f32,
         })
         .insert(MovingState { target_index: 0 });
