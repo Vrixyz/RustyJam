@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_egui::*;
+use wasm_bindgen::prelude::*;
 
 pub struct FlashMessage {
     pub message: String,
@@ -15,7 +16,7 @@ fn flash_message(
     mut q_messages: Query<(Entity, &mut FlashMessage)>,
 ) {
     egui::Area::new("flash")
-        .fixed_pos(egui::Pos2::new(10f32, 10f32))
+        .fixed_pos(egui::Pos2::new(100f32, 10f32))
         .show(egui_context.ctx(), |ui| {
             for (e, mut f) in q_messages.iter_mut() {
                 ui.colored_label(f.color, f.message.clone());
@@ -120,7 +121,6 @@ mod GameButton {
             if 0 < general_input.clicks && 0 == general_input.catched {
                 letters.current_index = 0;
                 info.text = letters.full_string.chars().take(1).collect::<String>();
-                // TODO: spawn entity to show "ILLUSION" as label for a short time
                 commands.spawn().insert(FlashMessage {
                     message: "ILLUSION".into(),
                     color: egui::Color32::YELLOW,
@@ -128,6 +128,11 @@ mod GameButton {
                 });
             }
             if input.clicked_on_frame {
+                commands.spawn().insert(FlashMessage {
+                    message: "Security?".into(),
+                    color: egui::Color32::BLUE,
+                    time_expire: time.time_since_startup().as_secs_f32() + 0.5f32,
+                });
                 letters.current_index += 1;
                 info.text = letters
                     .full_string
@@ -177,14 +182,22 @@ mod GameButton {
 }
 
 use GameButton::*;
-fn main() {
-    App::build()
-        .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
+
+#[wasm_bindgen]
+pub fn run() {
+    let mut app = App::build();
+
+    app.add_plugins(DefaultPlugins);
+
+    // when building for Web, use WebGL2 rendering
+    #[cfg(target_arch = "wasm32")]
+    app.add_plugin(bevy_webgl2::WebGL2Plugin);
+
+    app.insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .insert_resource(GeneralInput {
             clicks: 0,
             catched: 0,
         })
-        .add_plugins(DefaultPlugins)
         .add_plugin(EguiPlugin)
         .add_startup_system(setup_level.system())
         //.add_system(ui_example.system())
